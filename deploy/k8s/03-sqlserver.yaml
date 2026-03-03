@@ -1,0 +1,81 @@
+# ── PersistentVolumeClaim ─────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sqlserver-pvc
+  namespace: parcel-tracking
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+---
+# ── Deployment ────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sqlserver
+  namespace: parcel-tracking
+  labels:
+    app: sqlserver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sqlserver
+  template:
+    metadata:
+      labels:
+        app: sqlserver
+    spec:
+      containers:
+        - name: sqlserver
+          image: mcr.microsoft.com/mssql/server:2022-latest
+          ports:
+            - containerPort: 1433
+          env:
+            - name: ACCEPT_EULA
+              value: "Y"
+            - name: SA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: parcel-secrets
+                  key: sa-password
+          volumeMounts:
+            - name: data
+              mountPath: /var/opt/mssql
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1Gi
+            limits:
+              cpu: "2"
+              memory: 2Gi
+          readinessProbe:
+            tcpSocket:
+              port: 1433
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            failureThreshold: 20
+          livenessProbe:
+            tcpSocket:
+              port: 1433
+            initialDelaySeconds: 60
+            periodSeconds: 15
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: sqlserver-pvc
+---
+# ── Service ───────────────────────────────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: sqlserver
+  namespace: parcel-tracking
+spec:
+  selector:
+    app: sqlserver
+  ports:
+    - port: 1433
+      targetPort: 1433

@@ -1,0 +1,77 @@
+# Azure SQL Edge — backing store for the Service Bus Emulator
+# ── PersistentVolumeClaim ─────────────────────────────────────
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: sqledge-pvc
+  namespace: parcel-tracking
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 2Gi
+---
+# ── Deployment ────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sqledge
+  namespace: parcel-tracking
+  labels:
+    app: sqledge
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sqledge
+  template:
+    metadata:
+      labels:
+        app: sqledge
+    spec:
+      containers:
+        - name: sqledge
+          image: mcr.microsoft.com/azure-sql-edge
+          ports:
+            - containerPort: 1433
+          env:
+            - name: ACCEPT_EULA
+              value: "Y"
+            - name: MSSQL_SA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: parcel-secrets
+                  key: sa-password
+          volumeMounts:
+            - name: data
+              mountPath: /var/opt/mssql
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          readinessProbe:
+            tcpSocket:
+              port: 1433
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            failureThreshold: 20
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: sqledge-pvc
+---
+# ── Service (cluster-internal only) ──────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: sqledge
+  namespace: parcel-tracking
+spec:
+  selector:
+    app: sqledge
+  ports:
+    - port: 1433
+      targetPort: 1433

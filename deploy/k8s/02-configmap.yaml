@@ -1,0 +1,43 @@
+# Service Bus Emulator queue configuration — same content as deploy/servicebus-config.json
+# Mounted into the emulator container at /ServiceBus_Emulator/ConfigFiles/Config.json
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: servicebus-config
+  namespace: parcel-tracking
+data:
+  Config.json: |
+    {
+      "UserConfig": {
+        "Namespaces": [
+          {
+            "Name": "parceltracking",
+            "Queues": [
+              {
+                "Name": "parcel-scan-events",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": true,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "RequiresSession": true
+                }
+              },
+              {
+                "Name": "parcel-anomalies",
+                "Properties": {
+                  "DeadLetteringOnMessageExpiration": true,
+                  "DefaultMessageTimeToLive": "PT1H",
+                  "LockDuration": "PT1M",
+                  "MaxDeliveryCount": 10,
+                  "RequiresSession": false
+                }
+              }
+            ]
+          }
+        ],
+        "Logging": {
+          "Type": "File"
+        }
+      }
+    }

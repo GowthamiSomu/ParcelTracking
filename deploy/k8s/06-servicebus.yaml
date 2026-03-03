@@ -1,0 +1,72 @@
+# ── Deployment ────────────────────────────────────────────────
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: servicebus-emulator
+  namespace: parcel-tracking
+  labels:
+    app: servicebus-emulator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: servicebus-emulator
+  template:
+    metadata:
+      labels:
+        app: servicebus-emulator
+    spec:
+      initContainers:
+        # Wait for SQL Edge to accept connections before the emulator starts
+        - name: wait-for-sqledge
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -zw 3 sqledge 1433; do echo "Waiting for SQL Edge..."; sleep 3; done']
+      containers:
+        - name: servicebus-emulator
+          image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+          ports:
+            - containerPort: 5672
+          env:
+            - name: SQL_SERVER
+              value: sqledge
+            - name: MSSQL_SA_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: parcel-secrets
+                  key: sa-password
+            - name: ACCEPT_EULA
+              value: "Y"
+          volumeMounts:
+            - name: config
+              mountPath: /ServiceBus_Emulator/ConfigFiles/Config.json
+              subPath: Config.json
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            tcpSocket:
+              port: 5672
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 20
+      volumes:
+        - name: config
+          configMap:
+            name: servicebus-config
+---
+# ── Service (cluster-internal only) ──────────────────────────
+apiVersion: v1
+kind: Service
+metadata:
+  name: servicebus-emulator
+  namespace: parcel-tracking
+spec:
+  selector:
+    app: servicebus-emulator
+  ports:
+    - port: 5672
+      targetPort: 5672

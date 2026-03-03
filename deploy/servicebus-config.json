@@ -1,0 +1,34 @@
+{
+  "UserConfig": {
+    "Namespaces": [
+      {
+        "Name": "parceltracking",
+        "Queues": [
+          {
+            "Name": "parcel-scan-events",
+            "Properties": {
+              "DeadLetteringOnMessageExpiration": true,
+              "DefaultMessageTimeToLive": "PT1H",
+              "LockDuration": "PT1M",
+              "MaxDeliveryCount": 10,
+              "RequiresSession": true
+            }
+          },
+          {
+            "Name": "parcel-anomalies",
+            "Properties": {
+              "DeadLetteringOnMessageExpiration": true,
+              "DefaultMessageTimeToLive": "PT1H",
+              "LockDuration": "PT1M",
+              "MaxDeliveryCount": 10,
+              "RequiresSession": false
+            }
+          }
+        ]
+      }
+    ],
+    "Logging": {
+      "Type": "File"
+    }
+  }
+}

@@ -1,0 +1,63 @@
+# ── Deployment ────────────────────────────────────────────────
+# Init containers ensure SQL Server and Service Bus are accepting
+# connections before the worker starts (and runs EF migrations).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingestion
+  namespace: parcel-tracking
+  labels:
+    app: ingestion
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ingestion
+  template:
+    metadata:
+      labels:
+        app: ingestion
+    spec:
+      initContainers:
+        - name: wait-for-sql
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -zw 3 sqlserver 1433; do echo "Waiting for SQL Server..."; sleep 3; done; echo "SQL Server is ready"']
+        - name: wait-for-servicebus
+          image: busybox:1.36
+          command: ['sh', '-c', 'until nc -zw 3 servicebus-emulator 5672; do echo "Waiting for Service Bus..."; sleep 3; done; echo "Service Bus is ready"']
+      containers:
+        - name: ingestion
+          # Image built by: docker compose build ingestion
+          image: parceltracking-ingestion:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: DOTNET_ENVIRONMENT
+              value: Production
+            - name: ConnectionStrings__SqlServer
+              valueFrom:
+                secretKeyRef:
+                  name: parcel-secrets
+                  key: sqlserver-connection
+            - name: ConnectionStrings__Redis
+              valueFrom:
+                secretKeyRef:
+                  name: parcel-secrets
+                  key: redis-connection
+            - name: ConnectionStrings__ServiceBus
+              valueFrom:
+                secretKeyRef:
+                  name: parcel-secrets
+                  key: servicebus-connection
+            - name: ServiceBus__ScanEventsQueue
+              value: parcel-scan-events
+            - name: ServiceBus__AnomalyQueue
+              value: parcel-anomalies
+            - name: ServiceBus__MaxConcurrentSessions
+              value: "5"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

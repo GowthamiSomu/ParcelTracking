@@ -1,0 +1,57 @@
+# ── Build outputs ─────────────────────────────────────────────
+# Explicitly list both relative and rooted patterns so GitLeaks
+# never scans build artifacts (which may contain copied appsettings)
+**/bin/
+**/obj/
+bin/
+obj/
+
+# ── .NET tooling ──────────────────────────────────────────────
+*.user
+*.suo
+.vs/
+.vscode/settings.json
+*.DotSettings.user
+
+# ── NuGet ─────────────────────────────────────────────────────
+*.nupkg
+**/packages/
+!**/packages/build/
+
+# ── Secrets — NEVER commit these ─────────────────────────────
+# Local dev overrides (contain real connection strings / passwords)
+**/appsettings.Development.json
+**/appsettings.Local.json
+
+# .NET user-secrets (stored in %APPDATA%\Microsoft\UserSecrets)
+# already outside the repo — listed here as a reminder
+
+# Docker env file (contains real passwords)
+.env
+
+# Binary documents (requirements, design docs — not source code)
+*.docx
+*.doc
+~$*
+
+# Copilot / AI instruction files (internal tooling, not project source)
+.github/copilot-instructions.md
+
+# Kubernetes secrets manifest (generated locally by deploy/k8s/create-secrets.ps1)
+deploy/k8s/01-secrets.yaml
+
+# ── Docker ────────────────────────────────────────────────────
+# docker-compose override (local customisations)
+docker-compose.override.yml
+
+# ── Test results / coverage ───────────────────────────────────
+TestResults/
+coverage/
+*.trx
+*.coverage
+*.coveragexml
+
+# ── OS noise ──────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini

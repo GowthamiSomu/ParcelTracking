@@ -1,0 +1,26 @@
+# Build outputs
+**/bin/
+**/obj/
+
+# Test projects (not needed for app images)
+tests/
+
+# IDE files
+.vs/
+*.user
+.vscode/
+
+# Git
+.git/
+.github/
+
+# Docs / deploy scripts
+deploy/
+README.md
+docker-compose.yml
+*.md
+
+# Secrets / environment overrides
+**/appsettings.Development.json
+**/*.pfx
+**/*.key

@@ -1,0 +1,153 @@
+# ============================================================
+#  Parcel Tracking – Full Local Demo Stack
+#  All free / open-source components. No Azure account needed.
+#
+#  Secrets:  Copy .env.example → .env and set your passwords.
+#            .env is gitignored and MUST NOT be committed.
+#
+#  Infrastructure:
+#    sqlserver          – App database (SQL Server 2022)
+#    sqledge            – Backing store for the Service Bus emulator
+#    redis              – Idempotency key store
+#    servicebus-emulator – Azure Service Bus local emulator
+#    adminer            – Web UI to browse the database
+#
+#  Application:
+#    ingestion          – Worker service (EF migrations + event consumer)
+#    api                – REST API  →  http://localhost:5058
+#                         Swagger  →  http://localhost:5058/swagger
+#
+#  Usage:
+#    First build:        docker compose up --build -d
+#    Subsequent starts:  docker compose up -d
+#    Stop (keep data):   docker compose down
+#    Stop + wipe data:   docker compose down -v
+#
+#  Adminer (DB browser): http://localhost:8080
+#    System:   MS SQL (SQL Server)
+#    Server:   sqlserver
+#    Username: sa
+#    Password: value of SA_PASSWORD in your .env
+#    Database: ParcelTracking
+# ============================================================
+
+services:
+
+  # ── Application database ──────────────────────────────────────
+  sqlserver:
+    container_name: parcel-sqlserver
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      SA_PASSWORD: "${SA_PASSWORD}"
+      ACCEPT_EULA: "Y"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql     # data persists across container restarts
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "${SA_PASSWORD}" -Q "SELECT 1" -No || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ── Redis (idempotency store) ─────────────────────────────────
+  redis:
+    container_name: parcel-redis
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data                  # data persists across container restarts
+
+  # ── Azure SQL Edge (backing store for Service Bus emulator) ───
+  sqledge:
+    container_name: parcel-sqledge
+    image: mcr.microsoft.com/azure-sql-edge
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "${SA_PASSWORD}"
+    volumes:
+      - sqledge-data:/var/opt/mssql
+    healthcheck:
+      test: /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P "${SA_PASSWORD}" -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ── Azure Service Bus Emulator ────────────────────────────────
+  servicebus-emulator:
+    container_name: parcel-servicebus
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+    volumes:
+      - ./deploy/servicebus-config.json:/ServiceBus_Emulator/ConfigFiles/Config.json
+    ports:
+      - "5672:5672"
+    environment:
+      SQL_SERVER: sqledge
+      MSSQL_SA_PASSWORD: "${SA_PASSWORD}"
+      ACCEPT_EULA: "Y"
+    depends_on:
+      sqledge:
+        condition: service_healthy
+
+  # ── Adminer – web-based database browser ─────────────────────
+  # Open http://localhost:8080 in your browser
+  # System: MS SQL (SQL Server) | Server: sqlserver | User: sa | Password: see .env
+  adminer:
+    container_name: parcel-adminer
+    image: adminer:latest
+    ports:
+      - "8080:8080"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+
+  # ── Ingestion worker (EF migrations + Service Bus consumer) ──
+  ingestion:
+    container_name: parcel-ingestion
+    build:
+      context: .
+      dockerfile: src/ParcelTracking.Ingestion/Dockerfile
+    environment:
+      DOTNET_ENVIRONMENT: Production
+      ConnectionStrings__SqlServer: "${SQLSERVER_CONNECTION}"
+      ConnectionStrings__Redis: "${REDIS_CONNECTION}"
+      ConnectionStrings__ServiceBus: "${SERVICEBUS_CONNECTION}"
+      ServiceBus__ScanEventsQueue: "parcel-scan-events"
+      ServiceBus__AnomalyQueue: "parcel-anomalies"
+      ServiceBus__MaxConcurrentSessions: "5"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      servicebus-emulator:
+        condition: service_started
+    restart: on-failure
+
+  # ── REST API ──────────────────────────────────────────────────
+  api:
+    container_name: parcel-api
+    build:
+      context: .
+      dockerfile: src/ParcelTracking.Api/Dockerfile
+    ports:
+      - "5058:8080"
+    environment:
+      DOTNET_ENVIRONMENT: Production
+      ConnectionStrings__SqlServer: "${SQLSERVER_CONNECTION}"
+      ConnectionStrings__Redis: "${REDIS_CONNECTION}"
+      ConnectionStrings__ServiceBus: "${SERVICEBUS_CONNECTION}"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      ingestion:
+        condition: service_started
+    restart: on-failure
+
+volumes:
+  sqlserver-data:
+  redis-data:
+  sqledge-data:
