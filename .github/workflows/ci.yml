@@ -1,0 +1,71 @@
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  build-and-test:
+    name: Build & Test (.NET 8)
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── .NET 8 SDK ────────────────────────────────────────────────────────
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # ── Restore ───────────────────────────────────────────────────────────
+      - name: Restore dependencies
+        run: dotnet restore
+
+      # ── Build ─────────────────────────────────────────────────────────────
+      - name: Build (Release)
+        run: dotnet build --no-restore --configuration Release
+
+      # ── Unit Tests ────────────────────────────────────────────────────────
+      - name: Unit Tests
+        run: >
+          dotnet test tests/ParcelTracking.UnitTests
+          --no-build
+          --configuration Release
+          --verbosity normal
+          --logger "trx;LogFileName=unit-tests.trx"
+          --collect:"XPlat Code Coverage"
+
+      # ── Integration Tests ─────────────────────────────────────────────────
+      # Uses WebApplicationFactory<Program> + EF InMemory; no live services needed.
+      - name: Integration Tests
+        run: >
+          dotnet test tests/ParcelTracking.IntegrationTests
+          --no-build
+          --configuration Release
+          --verbosity normal
+          --logger "trx;LogFileName=integration-tests.trx"
+
+      # ── Load / Performance Tests ──────────────────────────────────────────
+      # Pure in-process CPU benchmark; asserts ≥ 5,000 events/sec.
+      - name: Load Tests (throughput benchmark)
+        run: >
+          dotnet test tests/ParcelTracking.LoadTests
+          --no-build
+          --configuration Release
+          --verbosity normal
+          --logger "trx;LogFileName=load-tests.trx"
+
+      # ── Publish test results ──────────────────────────────────────────────
+      - name: Publish Test Results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Test Results
+          path: '**/*.trx'
+          reporter: dotnet-trx
+          fail-on-error: false

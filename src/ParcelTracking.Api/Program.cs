@@ -139,3 +139,8 @@ app.MapControllers().RequireRateLimiting("api");
 
 app.Run();
 
+// Required so that WebApplicationFactory<Program> can reference this
+// class from the integration-test assembly (top-level-statement Program
+// is internal by default).
+public partial class Program { }
+

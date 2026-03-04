@@ -1,5 +1,7 @@
 # 📦 Parcel Tracking System
 
+[![CI](https://github.com/GowthamiSomu/ParcelTracking/actions/workflows/ci.yml/badge.svg)](https://github.com/GowthamiSomu/ParcelTracking/actions/workflows/ci.yml)
+
 A production-grade, event-driven parcel tracking system built with **.NET 8** and deployable locally via **Docker** or on **Kubernetes**. It ingests parcel scan events, enforces business rules, records a full event history, sends notifications, and exposes a REST API for tracking lookups.
 
 ---
@@ -530,34 +532,65 @@ Adminer provides a web interface to inspect the database directly — no SQL kno
 
 > **Requires .NET 8 SDK.** Download from **[https://dotnet.microsoft.com/download/dotnet/8.0](https://dotnet.microsoft.com/download/dotnet/8.0)** (choose the **SDK** installer for your OS).
 
-### Unit Tests (53 tests — no running containers needed)
+### Run all three suites in one command
 
+```bash
+dotnet test
 ```
+
+### Unit Tests — 53 tests, no containers needed
+
+```bash
 dotnet test tests/ParcelTracking.UnitTests
 ```
 
-Unit tests cover:
-- All three business rules (A, B, C) with valid and invalid inputs
-- Every state machine transition (valid and invalid)
-- Idempotency logic
-- Notification trigger conditions (sender always, receiver only if opted in)
-- Anomaly event emission on invalid transitions
+| Area | Tests |
+|---|---|
+| Rule A — Collection validation | 14 |
+| Rule B — Sizing & surcharge | 7 |
+| Rule C — Status transition validation | 10 |
+| State machine (valid + invalid transitions) | 12 |
+| Notification trigger conditions | 10 |
 
-### Integration Tests
+### Integration Tests — no containers needed
 
-Requires all containers running (`docker compose up -d`):
+Uses `WebApplicationFactory<Program>` with an EF Core in-memory database. No Docker required.
 
-```
+```bash
 dotnet test tests/ParcelTracking.IntegrationTests
 ```
 
-### Load / Performance Tests
+| Scenario | Covered |
+|---|---|
+| `GET /api/parcels/{id}` — 200 with correct body | ✅ |
+| Receiver PII masking (contactNumber/email absent) | ✅ |
+| `GET /api/parcels/{id}` — 404 unknown parcel | ✅ |
+| `GET /api/parcels/{id}` — 400 invalid tracking ID format | ✅ |
+| `GET /api/parcels/{id}/events` — reverse-chronological order | ✅ |
+| Events default limit = 100 | ✅ |
+| Events 404 for unknown parcel | ✅ |
+| Events 400 for out-of-range limit (0, -1, 501) | ✅ |
+| `GET /healthz/live` — liveness probe 200 | ✅ |
 
-Validates sustained 5,000 events/second throughput:
+### Load / Performance Tests — no containers needed
 
-```
+Pure in-process CPU benchmark validating the rules engine meets the **5,000 events/sec** NFR.
+
+```bash
 dotnet test tests/ParcelTracking.LoadTests
 ```
+
+| Benchmark | Events | Typical result |
+|---|---|---|
+| Full pipeline (Rule A + Rule B + state machine) | 50,000 | > 80,000 events/sec |
+| State machine lookups only | 300,000 | > 3,000,000 lookups/sec |
+| Rule A validation only | 50,000 | > 150,000 events/sec |
+
+> Results on a standard developer laptop. The 5,000 events/sec target applies to the **full pipeline** including I/O (Service Bus, SQL Server, Redis). The in-process benchmark confirms the business-logic layer is never the bottleneck.
+
+### CI — GitHub Actions
+
+Every push and pull request to `master` automatically runs all three test suites via [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Test results are published as a workflow artifact.
 
 ---
 
