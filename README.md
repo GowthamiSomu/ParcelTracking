@@ -1,6 +1,9 @@
 # 📦 Parcel Tracking System
 
 [![CI](https://github.com/GowthamiSomu/ParcelTracking/actions/workflows/ci.yml/badge.svg)](https://github.com/GowthamiSomu/ParcelTracking/actions/workflows/ci.yml)
+[![Demo Video](https://img.shields.io/badge/demo-video-blue?logo=github)](https://github.com/GowthamiSomu/ParcelTracking/releases/download/v1.0.0/ParcelTrackingProject.mp4)
+
+> 🎬 **[Watch the recorded demo](https://github.com/GowthamiSomu/ParcelTracking/releases/download/v1.0.0/ParcelTrackingProject.mp4)** — full end-to-end walkthrough (hosted on the [v1.0.0 release](https://github.com/GowthamiSomu/ParcelTracking/releases/tag/v1.0.0))
 
 A production-grade, event-driven parcel tracking system built with **.NET 8** and deployable locally via **Docker** or on **Kubernetes**. It ingests parcel scan events, enforces business rules, records a full event history, sends notifications, and exposes a REST API for tracking lookups.
 
