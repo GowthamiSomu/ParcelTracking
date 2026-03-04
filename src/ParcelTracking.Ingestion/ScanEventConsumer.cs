@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Azure.Messaging.ServiceBus;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -15,6 +16,12 @@ namespace ParcelTracking.Ingestion;
 /// </summary>
 public sealed class ScanEventConsumer : BackgroundService
 {
+    // Case-insensitive + camelCase so the consumer accepts messages from any producer
+    private static readonly JsonSerializerOptions _jsonOptions = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        Converters = { new JsonStringEnumConverter() }
+    };
     private readonly ServiceBusSessionProcessor _processor;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<ScanEventConsumer> _logger;
@@ -54,7 +61,7 @@ public sealed class ScanEventConsumer : BackgroundService
         ScanEvent? scanEvent;
         try
         {
-            scanEvent = JsonSerializer.Deserialize<ScanEvent>(args.Message.Body.ToString());
+            scanEvent = JsonSerializer.Deserialize<ScanEvent>(args.Message.Body.ToString(), _jsonOptions);
             if (scanEvent is null)
                 throw new InvalidOperationException("Deserialized ScanEvent was null.");
         }
