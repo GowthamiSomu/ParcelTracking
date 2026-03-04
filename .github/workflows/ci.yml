@@ -10,6 +10,9 @@ jobs:
   build-and-test:
     name: Build & Test (.NET 8)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write       # required by dorny/test-reporter to post results
 
     steps:
       # ── Checkout ──────────────────────────────────────────────────────────
