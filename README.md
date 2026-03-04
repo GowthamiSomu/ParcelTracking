@@ -17,13 +17,14 @@ A production-grade, event-driven parcel tracking system built with **.NET 8** an
 7. [Prerequisites – Install Required Tools](#7-prerequisites--install-required-tools)
 8. [First-Time Setup](#8-first-time-setup)
 9. [Running the Application](#9-running-the-application)
-10. [Stopping the Application](#10-stopping-the-application)
-11. [Using the API](#11-using-the-api)
-12. [Browsing the Database](#12-browsing-the-database)
-13. [Running Tests](#13-running-tests)
-14. [Kubernetes Deployment](#14-kubernetes-deployment)
-15. [Architecture & Security](#15-architecture--security)
-16. [Troubleshooting](#16-troubleshooting)
+10. [Interactive Demo Runner](#10-interactive-demo-runner)
+11. [Stopping the Application](#11-stopping-the-application)
+12. [Using the API](#12-using-the-api)
+13. [Browsing the Database](#13-browsing-the-database)
+14. [Running Tests](#14-running-tests)
+15. [Kubernetes Deployment](#15-kubernetes-deployment)
+16. [Architecture & Security](#16-architecture--security)
+17. [Troubleshooting](#17-troubleshooting)
 
 ---
 
@@ -413,7 +414,42 @@ Wait about 20–30 seconds for all components to start, then open your browser a
 
 ---
 
-## 10. Stopping the Application
+## 10. Interactive Demo Runner
+
+The demo runner is an interactive console application that sends real events to the Service Bus, waits for the ingestion service to process them, and queries the REST API — demonstrating every major feature end-to-end.
+
+### Prerequisites
+
+- All containers running: `docker compose up -d`
+- .NET 8 SDK installed
+
+### Run the demo
+
+```bash
+dotnet run --project demo/ParcelTracking.DemoSender
+```
+
+### Scenarios
+
+```
+[1] Standard parcel — happy path (full lifecycle: COLLECTED → DELIVERED)
+[2] Large parcel    — dimensions > 50 cm trigger 20% surcharge (Rule B)
+[3] Failed delivery — FAILED_TO_DELIVER → retry → DELIVERED
+[4] Invalid transition anomaly — Rule C rejects and dead-letters the event
+[5] Duplicate event — same eventId sent twice; second is silently dropped
+[6] Rule A failure  — missing address; parcel never created (404 confirmed)
+[7] Run ALL scenarios in sequence
+```
+
+Each scenario prints what it sends, what rule fires, and the API response at each stage. Ingestion logs can be watched in a second terminal:
+
+```bash
+docker compose logs -f ingestion
+```
+
+---
+
+## 11. Stopping the Application
 
 ### Stop (keep your data)
 
@@ -433,7 +469,7 @@ docker compose down -v
 
 ---
 
-## 11. Using the API
+## 12. Using the API
 
 ### Option A – Swagger UI (Recommended for non-technical users)
 
@@ -508,7 +544,7 @@ The ingestion service listens on the **Azure Service Bus** queue. To create a pa
 
 ---
 
-## 12. Browsing the Database
+## 13. Browsing the Database
 
 Adminer provides a web interface to inspect the database directly — no SQL knowledge needed.
 
@@ -528,7 +564,7 @@ Adminer provides a web interface to inspect the database directly — no SQL kno
 
 ---
 
-## 13. Running Tests
+## 14. Running Tests
 
 > **Requires .NET 8 SDK.** Download from **[https://dotnet.microsoft.com/download/dotnet/8.0](https://dotnet.microsoft.com/download/dotnet/8.0)** (choose the **SDK** installer for your OS).
 
@@ -594,7 +630,7 @@ Every push and pull request to `master` automatically runs all three test suites
 
 ---
 
-## 14. Kubernetes Deployment
+## 15. Kubernetes Deployment
 
 Kubernetes manifests are provided in `deploy/k8s/` for deploying to Docker Desktop Kubernetes or any Kubernetes cluster.
 
@@ -649,7 +685,7 @@ kubectl delete -f deploy/k8s/
 
 ---
 
-## 15. Architecture & Security
+## 16. Architecture & Security
 
 ### Architecture Principles
 
@@ -677,7 +713,7 @@ kubectl delete -f deploy/k8s/
 
 ---
 
-## 16. Troubleshooting
+## 17. Troubleshooting
 
 ### Containers won't start
 
